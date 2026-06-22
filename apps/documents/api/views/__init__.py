@@ -41,9 +41,7 @@ class DocumentViewSet(ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        document = serializer.save(uploaded_by=self.request.user)
-        document.full_clean()
-        document.save()
+        serializer.save(uploaded_by=self.request.user)
 
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
