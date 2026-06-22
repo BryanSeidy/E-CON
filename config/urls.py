@@ -9,8 +9,9 @@ from __future__ import annotations
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 
+from apps.accounts.api.views import EconTokenObtainPairView
 from config.dashboard import CompanyDashboardView, StudentDashboardView, UniversityDashboardView
 
 urlpatterns = [
@@ -21,7 +22,7 @@ urlpatterns = [
     path("dashboard/university/", UniversityDashboardView.as_view(), name="dashboard-university"),
     path("dashboard/company/", CompanyDashboardView.as_view(), name="dashboard-company"),
     path("dashboard/student/", StudentDashboardView.as_view(), name="dashboard-student"),
-    path("api/v1/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/v1/auth/token/", EconTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/v1/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/v1/", include("apps.notifications.urls")),
     path("api/v1/", include("apps.evaluations.urls")),

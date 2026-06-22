@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "econ-backend"
 version = "0.1.0"
 description = "Enterprise-grade Django backend foundations for E-CON."
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "celery>=5.4,<6",
     "django>=5.0,<6",

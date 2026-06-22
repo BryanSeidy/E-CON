@@ -22,6 +22,8 @@ def seed_development_superuser(apps, schema_editor):
     if user_model.objects.filter(email=email).exists():
         return
 
+    from django.contrib.auth.hashers import make_password
+
     user = user_model(
         email=email,
         first_name="Development",
@@ -30,8 +32,8 @@ def seed_development_superuser(apps, schema_editor):
         is_active=True,
         is_staff=True,
         is_superuser=True,
+        password=make_password(password),
     )
-    user.set_password(password)
     user.save(using=schema_editor.connection.alias)
 
 
