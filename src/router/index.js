@@ -3,6 +3,8 @@ import { useAuthStore } from '@/stores/auth';
 const Login = () => import('@/modules/auth/LoginPage.vue');
 const Shell = () => import('@/layouts/AppShell.vue');
 const Dashboard = () => import('@/pages/DashboardPage.vue');
+const Documents = () => import('@/pages/DocumentsPage.vue');
+const WeeklyLogs = () => import('@/pages/WeeklyLogsPage.vue');
 const Placeholder = () => import('@/pages/PlaceholderPage.vue');
 const route = (path, name, label, roles) => ({ path, name, component: Placeholder, meta: { requiresAuth: true, label, roles } });
 export const router = createRouter({ history: createWebHistory(), routes: [
@@ -10,7 +12,9 @@ export const router = createRouter({ history: createWebHistory(), routes: [
         { path: '/', component: Shell, meta: { requiresAuth: true }, children: [
                 { path: '', redirect: '/dashboard' },
                 { path: 'dashboard', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true, label: 'Dashboard' } },
-                route('profile', 'profile', 'Mon profil'), route('offers', 'offers', 'Offres'), route('offers/:id', 'offer-detail', 'Détail offre'), route('applications', 'applications', 'Mes candidatures'), route('internships', 'internships', 'Mon stage'), route('documents', 'documents', 'Documents'), route('tracking/weekly-logs', 'weekly-logs', 'Journal hebdomadaire'), route('evaluations', 'evaluations', 'Evaluations'), route('notifications', 'notifications', 'Notifications'),
+                { path: 'documents', name: 'documents', component: Documents, meta: { requiresAuth: true, label: 'Documents' } },
+                { path: 'tracking/weekly-logs', name: 'weekly-logs', component: WeeklyLogs, meta: { requiresAuth: true, label: 'Journal hebdomadaire' } },
+                route('profile', 'profile', 'Mon profil'), route('offers', 'offers', 'Offres'), route('offers/:id', 'offer-detail', 'Détail offre'), route('applications', 'applications', 'Mes candidatures'), route('internships', 'internships', 'Mon stage'), route('evaluations', 'evaluations', 'Evaluations'), route('notifications', 'notifications', 'Notifications'),
                 route('company/profile', 'company-profile', 'Profil entreprise', ['COMPANY_MEMBER']), route('company/offers', 'company-offers', 'Offres entreprise', ['COMPANY_MEMBER']), route('company/applications', 'company-applications', 'Candidatures reçues', ['COMPANY_MEMBER']),
                 route('university/students', 'university-students', 'Etudiants', ['UNIVERSITY_ADMIN', 'ACADEMIC_SUPERVISOR', 'HEAD_OF_PROGRAM']), route('university/internships', 'university-internships', 'Stages', ['UNIVERSITY_ADMIN', 'ACADEMIC_SUPERVISOR', 'HEAD_OF_PROGRAM'])
             ] },

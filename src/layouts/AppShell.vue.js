@@ -1,11 +1,11 @@
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Bell, FileText, LayoutDashboard, LogOut, UserRound } from 'lucide-vue-next';
+import { Bell, CalendarDays, FileText, LayoutDashboard, LogOut, UserRound } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 const auth = useAuthStore();
 const route = useRoute();
 const router = useRouter();
-const nav = [['/dashboard', 'Dashboard', LayoutDashboard], ['/profile', 'Profil', UserRound], ['/offers', 'Offres', FileText], ['/applications', 'Candidatures', FileText], ['/internships', 'Stage', FileText], ['/documents', 'Documents', FileText], ['/notifications', 'Notifications', Bell]];
+const nav = [['/dashboard', 'Dashboard', LayoutDashboard], ['/profile', 'Profil', UserRound], ['/offers', 'Offres', FileText], ['/applications', 'Candidatures', FileText], ['/internships', 'Stage', FileText], ['/documents', 'Documents', FileText], ['/tracking/weekly-logs', 'Journal', CalendarDays], ['/notifications', 'Notifications', Bell]];
 const title = computed(() => String(route.meta.label ?? 'E-CON'));
 function logout() { auth.logout(); router.push('/login'); }
 const __VLS_ctx = {

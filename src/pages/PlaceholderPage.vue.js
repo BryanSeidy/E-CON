@@ -1,7 +1,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { AlertCircle, Check, ChevronLeft, ChevronRight, Edit3, Loader2, Plus, Search, Trash2, X } from 'lucide-vue-next';
-import { applicationsApi, companiesApi, internshipsApi, offersApi } from '@/api/endpoints';
+import { applicationsApi, companiesApi, evaluationsApi, internshipsApi, notificationsApi, offersApi } from '@/api/endpoints';
 import { useAuthStore } from '@/stores/auth';
 const route = useRoute();
 const auth = useAuthStore();
@@ -14,15 +14,18 @@ const total = ref(0);
 const offers = ref([]);
 const applications = ref([]);
 const internships = ref([]);
+const evaluations = ref([]);
+const notifications = ref([]);
 const companies = ref([]);
 const selectedOffer = ref(null);
 const editingOfferId = ref(null);
 const coverLetter = ref('');
 const offerForm = reactive({ company: '', title: '', description: '', location: '', required_skills: '', start_date: '', end_date: '', is_active: true });
+const evaluationForm = reactive({ internship: '', evaluation_type: 'ACADEMIC', score: 80, comment: '' });
 const activeView = computed(() => String(route.name ?? ''));
 const isList = computed(() => ['offers', 'company-offers'].includes(activeView.value));
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / 20)));
-function resetState() { error.value = ''; selectedOffer.value = null; applications.value = []; internships.value = []; offers.value = []; total.value = 0; }
+function resetState() { error.value = ''; selectedOffer.value = null; applications.value = []; internships.value = []; evaluations.value = []; notifications.value = []; offers.value = []; total.value = 0; }
 function setError(message = 'Une erreur est survenue pendant le chargement.') { error.value = message; }
 function resetOfferForm(company = '') { Object.assign(offerForm, { company, title: '', description: '', location: '', required_skills: '', start_date: '', end_date: '', is_active: true }); editingOfferId.value = null; }
 function editOffer(offer) { Object.assign(offerForm, { company: offer.company, title: offer.title, description: offer.description, location: offer.location ?? '', required_skills: offer.required_skills ?? '', start_date: offer.start_date ?? '', end_date: offer.end_date ?? '', is_active: offer.is_active ?? true }); editingOfferId.value = offer.id; }
@@ -30,7 +33,15 @@ async function loadCompanies() { companies.value = (await companiesApi.list()).r
     offerForm.company = companies.value[0].id; }
 async function loadOffers() { const response = await offersApi.list({ page: page.value, search: search.value || undefined }); offers.value = response.results; total.value = response.count; }
 async function loadApplications() { const response = await applicationsApi.list({ page: page.value, search: search.value || undefined }); applications.value = response.results; total.value = response.count; }
-async function loadInternships() { const response = await internshipsApi.list({ page: page.value, search: search.value || undefined }); internships.value = response.results; total.value = response.count; }
+async function loadInternships() { const response = await internshipsApi.list({ page: page.value, search: search.value || undefined }); internships.value = response.results; total.value = response.count; if (!evaluationForm.internship && internships.value[0])
+    evaluationForm.internship = internships.value[0].id; }
+async function loadEvaluations() { const response = await evaluationsApi.list({ page: page.value }); evaluations.value = response.results; total.value = response.count; if (!internships.value.length) {
+    const internshipResponse = await internshipsApi.list();
+    internships.value = internshipResponse.results;
+    if (!evaluationForm.internship && internships.value[0])
+        evaluationForm.internship = internships.value[0].id;
+} }
+async function loadNotifications() { const response = await notificationsApi.list({ page: page.value, search: search.value || undefined }); notifications.value = response.results; total.value = response.count; }
 async function loadOfferDetail() { selectedOffer.value = await offersApi.retrieve(String(route.params.id)); }
 async function loadCurrentView() {
     loading.value = true;
@@ -47,6 +58,10 @@ async function loadCurrentView() {
             await loadApplications();
         if (['internships', 'university-internships'].includes(activeView.value))
             await loadInternships();
+        if (activeView.value === 'evaluations')
+            await loadEvaluations();
+        if (activeView.value === 'notifications')
+            await loadNotifications();
     }
     catch {
         setError();
@@ -88,6 +103,27 @@ catch {
 finally {
     saving.value = false;
 } }
+async function submitEvaluation() { saving.value = true; try {
+    await evaluationsApi.create({ ...evaluationForm, score: Number(evaluationForm.score) });
+    Object.assign(evaluationForm, { internship: evaluationForm.internship, evaluation_type: evaluationForm.evaluation_type, score: 80, comment: '' });
+    await loadEvaluations();
+}
+catch {
+    setError('L’évaluation n’a pas pu être enregistrée.');
+}
+finally {
+    saving.value = false;
+} }
+async function markNotificationRead(notification) { saving.value = true; try {
+    await notificationsApi.action(notification.id, 'read');
+    await loadNotifications();
+}
+catch {
+    setError('La notification n’a pas pu être mise à jour.');
+}
+finally {
+    saving.value = false;
+} }
 async function reviewApplication(application, action) { saving.value = true; try {
     await applicationsApi.action(application.id, action);
     await loadApplications();
@@ -103,7 +139,7 @@ function nextPage() { if (page.value < totalPages.value)
 function previousPage() { if (page.value > 1)
     page.value -= 1; }
 watch(() => route.fullPath, () => { page.value = 1; resetOfferForm(); void loadCurrentView(); });
-watch([page], () => { if (isList.value || ['applications', 'company-applications', 'internships', 'university-internships'].includes(activeView.value))
+watch([page], () => { if (isList.value || ['applications', 'company-applications', 'internships', 'university-internships', 'evaluations', 'notifications'].includes(activeView.value))
     void loadCurrentView(); });
 onMounted(loadCurrentView);
 const __VLS_ctx = {
@@ -197,11 +233,11 @@ if (__VLS_ctx.activeView === 'profile' || __VLS_ctx.activeView === 'university-s
             ...{ class: "font-medium" },
         });
         /** @type {__VLS_StyleScopedClasses['font-medium']} */ ;
-        (__VLS_ctx.auth.user?.email || __VLS_ctx.auth.user?.id || 'Utilisateur authentifié');
+        (__VLS_ctx.auth.user?.email || __VLS_ctx.auth.user?.id || "Utilisateur authentifié");
     }
 }
 else {
-    if (['offers', 'company-offers', 'applications', 'company-applications', 'internships', 'university-internships'].includes(__VLS_ctx.activeView)) {
+    if (['offers', 'company-offers', 'applications', 'company-applications', 'internships', 'university-internships', 'evaluations', 'notifications'].includes(__VLS_ctx.activeView)) {
         __VLS_asFunctionalElement1(__VLS_intrinsics.div, __VLS_intrinsics.div)({
             ...{ class: "flex flex-col gap-3 rounded-2xl border border-border bg-white p-4 md:flex-row md:items-center md:justify-between" },
         });
@@ -243,7 +279,7 @@ else {
             ...{ onKeyup: (...[$event]) => {
                     if (!!(__VLS_ctx.activeView === 'profile' || __VLS_ctx.activeView === 'university-students'))
                         return;
-                    if (!(['offers', 'company-offers', 'applications', 'company-applications', 'internships', 'university-internships'].includes(__VLS_ctx.activeView)))
+                    if (!(['offers', 'company-offers', 'applications', 'company-applications', 'internships', 'university-internships', 'evaluations', 'notifications'].includes(__VLS_ctx.activeView)))
                         return;
                     __VLS_ctx.page = 1;
                     __VLS_ctx.loadCurrentView();
@@ -266,7 +302,7 @@ else {
             ...{ onClick: (...[$event]) => {
                     if (!!(__VLS_ctx.activeView === 'profile' || __VLS_ctx.activeView === 'university-students'))
                         return;
-                    if (!(['offers', 'company-offers', 'applications', 'company-applications', 'internships', 'university-internships'].includes(__VLS_ctx.activeView)))
+                    if (!(['offers', 'company-offers', 'applications', 'company-applications', 'internships', 'university-internships', 'evaluations', 'notifications'].includes(__VLS_ctx.activeView)))
                         return;
                     __VLS_ctx.page = 1;
                     __VLS_ctx.loadCurrentView();
@@ -282,6 +318,109 @@ else {
         /** @type {__VLS_StyleScopedClasses['py-2']} */ ;
         /** @type {__VLS_StyleScopedClasses['text-sm']} */ ;
         /** @type {__VLS_StyleScopedClasses['font-medium']} */ ;
+    }
+    if (__VLS_ctx.activeView === 'evaluations') {
+        __VLS_asFunctionalElement1(__VLS_intrinsics.div, __VLS_intrinsics.div)({
+            ...{ class: "rounded-2xl border border-border bg-white p-6 shadow-sm" },
+        });
+        /** @type {__VLS_StyleScopedClasses['rounded-2xl']} */ ;
+        /** @type {__VLS_StyleScopedClasses['border']} */ ;
+        /** @type {__VLS_StyleScopedClasses['border-border']} */ ;
+        /** @type {__VLS_StyleScopedClasses['bg-white']} */ ;
+        /** @type {__VLS_StyleScopedClasses['p-6']} */ ;
+        /** @type {__VLS_StyleScopedClasses['shadow-sm']} */ ;
+        __VLS_asFunctionalElement1(__VLS_intrinsics.h3, __VLS_intrinsics.h3)({
+            ...{ class: "text-lg font-semibold" },
+        });
+        /** @type {__VLS_StyleScopedClasses['text-lg']} */ ;
+        /** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
+        __VLS_asFunctionalElement1(__VLS_intrinsics.form, __VLS_intrinsics.form)({
+            ...{ onSubmit: (__VLS_ctx.submitEvaluation) },
+            ...{ class: "mt-4 grid gap-4 md:grid-cols-2" },
+        });
+        /** @type {__VLS_StyleScopedClasses['mt-4']} */ ;
+        /** @type {__VLS_StyleScopedClasses['grid']} */ ;
+        /** @type {__VLS_StyleScopedClasses['gap-4']} */ ;
+        /** @type {__VLS_StyleScopedClasses['md:grid-cols-2']} */ ;
+        __VLS_asFunctionalElement1(__VLS_intrinsics.select, __VLS_intrinsics.select)({
+            value: (__VLS_ctx.evaluationForm.internship),
+            required: true,
+            ...{ class: "rounded-xl border border-border px-3 py-2.5 text-sm" },
+        });
+        /** @type {__VLS_StyleScopedClasses['rounded-xl']} */ ;
+        /** @type {__VLS_StyleScopedClasses['border']} */ ;
+        /** @type {__VLS_StyleScopedClasses['border-border']} */ ;
+        /** @type {__VLS_StyleScopedClasses['px-3']} */ ;
+        /** @type {__VLS_StyleScopedClasses['py-2.5']} */ ;
+        /** @type {__VLS_StyleScopedClasses['text-sm']} */ ;
+        __VLS_asFunctionalElement1(__VLS_intrinsics.option, __VLS_intrinsics.option)({
+            value: "",
+            disabled: true,
+        });
+        for (const [internship] of __VLS_vFor((__VLS_ctx.internships))) {
+            __VLS_asFunctionalElement1(__VLS_intrinsics.option, __VLS_intrinsics.option)({
+                key: (internship.id),
+                value: (internship.id),
+            });
+            (internship.id);
+            // @ts-ignore
+            [activeView, submitEvaluation, evaluationForm, internships,];
+        }
+        __VLS_asFunctionalElement1(__VLS_intrinsics.select, __VLS_intrinsics.select)({
+            value: (__VLS_ctx.evaluationForm.evaluation_type),
+            ...{ class: "rounded-xl border border-border px-3 py-2.5 text-sm" },
+        });
+        /** @type {__VLS_StyleScopedClasses['rounded-xl']} */ ;
+        /** @type {__VLS_StyleScopedClasses['border']} */ ;
+        /** @type {__VLS_StyleScopedClasses['border-border']} */ ;
+        /** @type {__VLS_StyleScopedClasses['px-3']} */ ;
+        /** @type {__VLS_StyleScopedClasses['py-2.5']} */ ;
+        /** @type {__VLS_StyleScopedClasses['text-sm']} */ ;
+        __VLS_asFunctionalElement1(__VLS_intrinsics.option, __VLS_intrinsics.option)({
+            value: "ACADEMIC",
+        });
+        __VLS_asFunctionalElement1(__VLS_intrinsics.option, __VLS_intrinsics.option)({
+            value: "PROFESSIONAL",
+        });
+        __VLS_asFunctionalElement1(__VLS_intrinsics.input)({
+            required: true,
+            type: "number",
+            min: "0",
+            max: "100",
+            ...{ class: "rounded-xl border border-border px-3 py-2.5 text-sm" },
+        });
+        (__VLS_ctx.evaluationForm.score);
+        /** @type {__VLS_StyleScopedClasses['rounded-xl']} */ ;
+        /** @type {__VLS_StyleScopedClasses['border']} */ ;
+        /** @type {__VLS_StyleScopedClasses['border-border']} */ ;
+        /** @type {__VLS_StyleScopedClasses['px-3']} */ ;
+        /** @type {__VLS_StyleScopedClasses['py-2.5']} */ ;
+        /** @type {__VLS_StyleScopedClasses['text-sm']} */ ;
+        __VLS_asFunctionalElement1(__VLS_intrinsics.textarea)({
+            value: (__VLS_ctx.evaluationForm.comment),
+            ...{ class: "min-h-20 rounded-xl border border-border px-3 py-2.5 text-sm" },
+            placeholder: "Commentaire",
+        });
+        /** @type {__VLS_StyleScopedClasses['min-h-20']} */ ;
+        /** @type {__VLS_StyleScopedClasses['rounded-xl']} */ ;
+        /** @type {__VLS_StyleScopedClasses['border']} */ ;
+        /** @type {__VLS_StyleScopedClasses['border-border']} */ ;
+        /** @type {__VLS_StyleScopedClasses['px-3']} */ ;
+        /** @type {__VLS_StyleScopedClasses['py-2.5']} */ ;
+        /** @type {__VLS_StyleScopedClasses['text-sm']} */ ;
+        __VLS_asFunctionalElement1(__VLS_intrinsics.button, __VLS_intrinsics.button)({
+            ...{ class: "rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 md:col-span-2" },
+            disabled: (__VLS_ctx.saving),
+        });
+        /** @type {__VLS_StyleScopedClasses['rounded-xl']} */ ;
+        /** @type {__VLS_StyleScopedClasses['bg-slate-950']} */ ;
+        /** @type {__VLS_StyleScopedClasses['px-4']} */ ;
+        /** @type {__VLS_StyleScopedClasses['py-2.5']} */ ;
+        /** @type {__VLS_StyleScopedClasses['text-sm']} */ ;
+        /** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
+        /** @type {__VLS_StyleScopedClasses['text-white']} */ ;
+        /** @type {__VLS_StyleScopedClasses['disabled:opacity-60']} */ ;
+        /** @type {__VLS_StyleScopedClasses['md:col-span-2']} */ ;
     }
     if (__VLS_ctx.activeView === 'company-offers') {
         __VLS_asFunctionalElement1(__VLS_intrinsics.div, __VLS_intrinsics.div)({
@@ -329,7 +468,7 @@ else {
             });
             (company.name);
             // @ts-ignore
-            [activeView, editingOfferId, saveOffer, offerForm, companies,];
+            [activeView, evaluationForm, evaluationForm, evaluationForm, saving, editingOfferId, saveOffer, offerForm, companies,];
         }
         __VLS_asFunctionalElement1(__VLS_intrinsics.input)({
             required: true,
@@ -463,7 +602,7 @@ else {
                             return;
                         __VLS_ctx.resetOfferForm(__VLS_ctx.offerForm.company);
                         // @ts-ignore
-                        [editingOfferId, editingOfferId, offerForm, offerForm, offerForm, offerForm, offerForm, offerForm, offerForm, saving, resetOfferForm,];
+                        [saving, editingOfferId, editingOfferId, offerForm, offerForm, offerForm, offerForm, offerForm, offerForm, offerForm, resetOfferForm,];
                     } },
                 type: "button",
                 ...{ class: "rounded-xl border border-border px-4 py-2.5 text-sm" },
@@ -982,6 +1121,146 @@ else {
             /** @type {__VLS_StyleScopedClasses['text-slate-500']} */ ;
         }
     }
+    else if (__VLS_ctx.activeView === 'evaluations') {
+        __VLS_asFunctionalElement1(__VLS_intrinsics.div, __VLS_intrinsics.div)({
+            ...{ class: "space-y-3" },
+        });
+        /** @type {__VLS_StyleScopedClasses['space-y-3']} */ ;
+        for (const [evaluation] of __VLS_vFor((__VLS_ctx.evaluations))) {
+            __VLS_asFunctionalElement1(__VLS_intrinsics.article, __VLS_intrinsics.article)({
+                key: (evaluation.id),
+                ...{ class: "rounded-2xl border border-border bg-white p-5 shadow-sm" },
+            });
+            /** @type {__VLS_StyleScopedClasses['rounded-2xl']} */ ;
+            /** @type {__VLS_StyleScopedClasses['border']} */ ;
+            /** @type {__VLS_StyleScopedClasses['border-border']} */ ;
+            /** @type {__VLS_StyleScopedClasses['bg-white']} */ ;
+            /** @type {__VLS_StyleScopedClasses['p-5']} */ ;
+            /** @type {__VLS_StyleScopedClasses['shadow-sm']} */ ;
+            __VLS_asFunctionalElement1(__VLS_intrinsics.h3, __VLS_intrinsics.h3)({
+                ...{ class: "font-semibold" },
+            });
+            /** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
+            (evaluation.evaluation_type);
+            (evaluation.score);
+            __VLS_asFunctionalElement1(__VLS_intrinsics.p, __VLS_intrinsics.p)({
+                ...{ class: "mt-2 whitespace-pre-line text-sm text-slate-600" },
+            });
+            /** @type {__VLS_StyleScopedClasses['mt-2']} */ ;
+            /** @type {__VLS_StyleScopedClasses['whitespace-pre-line']} */ ;
+            /** @type {__VLS_StyleScopedClasses['text-sm']} */ ;
+            /** @type {__VLS_StyleScopedClasses['text-slate-600']} */ ;
+            (evaluation.comment || 'Aucun commentaire');
+            // @ts-ignore
+            [activeView, applications, evaluations,];
+        }
+        if (!__VLS_ctx.evaluations.length) {
+            __VLS_asFunctionalElement1(__VLS_intrinsics.div, __VLS_intrinsics.div)({
+                ...{ class: "rounded-2xl border border-border bg-white p-10 text-center text-slate-500" },
+            });
+            /** @type {__VLS_StyleScopedClasses['rounded-2xl']} */ ;
+            /** @type {__VLS_StyleScopedClasses['border']} */ ;
+            /** @type {__VLS_StyleScopedClasses['border-border']} */ ;
+            /** @type {__VLS_StyleScopedClasses['bg-white']} */ ;
+            /** @type {__VLS_StyleScopedClasses['p-10']} */ ;
+            /** @type {__VLS_StyleScopedClasses['text-center']} */ ;
+            /** @type {__VLS_StyleScopedClasses['text-slate-500']} */ ;
+        }
+    }
+    else if (__VLS_ctx.activeView === 'notifications') {
+        __VLS_asFunctionalElement1(__VLS_intrinsics.div, __VLS_intrinsics.div)({
+            ...{ class: "space-y-3" },
+        });
+        /** @type {__VLS_StyleScopedClasses['space-y-3']} */ ;
+        for (const [notification] of __VLS_vFor((__VLS_ctx.notifications))) {
+            __VLS_asFunctionalElement1(__VLS_intrinsics.article, __VLS_intrinsics.article)({
+                key: (notification.id),
+                ...{ class: "rounded-2xl border border-border bg-white p-5 shadow-sm" },
+            });
+            /** @type {__VLS_StyleScopedClasses['rounded-2xl']} */ ;
+            /** @type {__VLS_StyleScopedClasses['border']} */ ;
+            /** @type {__VLS_StyleScopedClasses['border-border']} */ ;
+            /** @type {__VLS_StyleScopedClasses['bg-white']} */ ;
+            /** @type {__VLS_StyleScopedClasses['p-5']} */ ;
+            /** @type {__VLS_StyleScopedClasses['shadow-sm']} */ ;
+            __VLS_asFunctionalElement1(__VLS_intrinsics.div, __VLS_intrinsics.div)({
+                ...{ class: "flex flex-col gap-4 md:flex-row md:items-center md:justify-between" },
+            });
+            /** @type {__VLS_StyleScopedClasses['flex']} */ ;
+            /** @type {__VLS_StyleScopedClasses['flex-col']} */ ;
+            /** @type {__VLS_StyleScopedClasses['gap-4']} */ ;
+            /** @type {__VLS_StyleScopedClasses['md:flex-row']} */ ;
+            /** @type {__VLS_StyleScopedClasses['md:items-center']} */ ;
+            /** @type {__VLS_StyleScopedClasses['md:justify-between']} */ ;
+            __VLS_asFunctionalElement1(__VLS_intrinsics.div, __VLS_intrinsics.div)({});
+            __VLS_asFunctionalElement1(__VLS_intrinsics.p, __VLS_intrinsics.p)({
+                ...{ class: "text-sm text-slate-500" },
+            });
+            /** @type {__VLS_StyleScopedClasses['text-sm']} */ ;
+            /** @type {__VLS_StyleScopedClasses['text-slate-500']} */ ;
+            (notification.is_read ? 'Lue' : 'Non lue');
+            __VLS_asFunctionalElement1(__VLS_intrinsics.h3, __VLS_intrinsics.h3)({
+                ...{ class: "font-semibold" },
+            });
+            /** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
+            (notification.title);
+            __VLS_asFunctionalElement1(__VLS_intrinsics.p, __VLS_intrinsics.p)({
+                ...{ class: "mt-1 text-sm text-slate-600" },
+            });
+            /** @type {__VLS_StyleScopedClasses['mt-1']} */ ;
+            /** @type {__VLS_StyleScopedClasses['text-sm']} */ ;
+            /** @type {__VLS_StyleScopedClasses['text-slate-600']} */ ;
+            (notification.message);
+            if (!notification.is_read) {
+                __VLS_asFunctionalElement1(__VLS_intrinsics.button, __VLS_intrinsics.button)({
+                    ...{ onClick: (...[$event]) => {
+                            if (!!(__VLS_ctx.activeView === 'profile' || __VLS_ctx.activeView === 'university-students'))
+                                return;
+                            if (!!(__VLS_ctx.loading))
+                                return;
+                            if (!!(__VLS_ctx.error))
+                                return;
+                            if (!!(__VLS_ctx.activeView === 'offer-detail' && __VLS_ctx.selectedOffer))
+                                return;
+                            if (!!(['offers', 'company-offers'].includes(__VLS_ctx.activeView)))
+                                return;
+                            if (!!(['applications', 'company-applications'].includes(__VLS_ctx.activeView)))
+                                return;
+                            if (!!(__VLS_ctx.activeView === 'evaluations'))
+                                return;
+                            if (!(__VLS_ctx.activeView === 'notifications'))
+                                return;
+                            if (!(!notification.is_read))
+                                return;
+                            __VLS_ctx.markNotificationRead(notification);
+                            // @ts-ignore
+                            [activeView, evaluations, notifications, markNotificationRead,];
+                        } },
+                    ...{ class: "rounded-xl border border-border px-4 py-2 text-sm" },
+                });
+                /** @type {__VLS_StyleScopedClasses['rounded-xl']} */ ;
+                /** @type {__VLS_StyleScopedClasses['border']} */ ;
+                /** @type {__VLS_StyleScopedClasses['border-border']} */ ;
+                /** @type {__VLS_StyleScopedClasses['px-4']} */ ;
+                /** @type {__VLS_StyleScopedClasses['py-2']} */ ;
+                /** @type {__VLS_StyleScopedClasses['text-sm']} */ ;
+            }
+            // @ts-ignore
+            [];
+        }
+        if (!__VLS_ctx.notifications.length) {
+            __VLS_asFunctionalElement1(__VLS_intrinsics.div, __VLS_intrinsics.div)({
+                ...{ class: "rounded-2xl border border-border bg-white p-10 text-center text-slate-500" },
+            });
+            /** @type {__VLS_StyleScopedClasses['rounded-2xl']} */ ;
+            /** @type {__VLS_StyleScopedClasses['border']} */ ;
+            /** @type {__VLS_StyleScopedClasses['border-border']} */ ;
+            /** @type {__VLS_StyleScopedClasses['bg-white']} */ ;
+            /** @type {__VLS_StyleScopedClasses['p-10']} */ ;
+            /** @type {__VLS_StyleScopedClasses['text-center']} */ ;
+            /** @type {__VLS_StyleScopedClasses['text-slate-500']} */ ;
+        }
+    }
     else if (['internships', 'university-internships'].includes(__VLS_ctx.activeView)) {
         __VLS_asFunctionalElement1(__VLS_intrinsics.div, __VLS_intrinsics.div)({
             ...{ class: "space-y-3" },
@@ -1024,10 +1303,10 @@ else {
             });
             /** @type {__VLS_StyleScopedClasses['text-sm']} */ ;
             /** @type {__VLS_StyleScopedClasses['text-slate-500']} */ ;
-            (internship.start_date || 'Début non renseigné');
-            (internship.end_date || 'Fin non renseignée');
+            (internship.start_date || "Début non renseigné");
+            (internship.end_date || "Fin non renseignée");
             // @ts-ignore
-            [activeView, applications, internships,];
+            [activeView, internships, notifications,];
         }
         if (!__VLS_ctx.internships.length) {
             __VLS_asFunctionalElement1(__VLS_intrinsics.div, __VLS_intrinsics.div)({
@@ -1042,7 +1321,7 @@ else {
             /** @type {__VLS_StyleScopedClasses['text-slate-500']} */ ;
         }
     }
-    if (['offers', 'company-offers', 'applications', 'company-applications', 'internships', 'university-internships'].includes(__VLS_ctx.activeView) && __VLS_ctx.total > 20) {
+    if (['offers', 'company-offers', 'applications', 'company-applications', 'internships', 'university-internships', 'evaluations', 'notifications'].includes(__VLS_ctx.activeView) && __VLS_ctx.total > 20) {
         __VLS_asFunctionalElement1(__VLS_intrinsics.div, __VLS_intrinsics.div)({
             ...{ class: "flex items-center justify-between rounded-2xl border border-border bg-white p-4" },
         });

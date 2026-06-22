@@ -95,7 +95,7 @@ export interface Document {
   document_type?: DocumentTypeEnum
   title: string
   file: string
-  readonly status: unknown
+  readonly status: DocumentStatusEnum
   comment?: string
   readonly reviewed_by: string | null
   readonly reviewed_at: string | null
