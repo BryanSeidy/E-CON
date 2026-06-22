@@ -4,19 +4,27 @@ from __future__ import annotations
 
 import pytest
 from apps.applications.services import accept_application, submit_application
-from apps.common.models import EvaluationType, InternshipStatus, UserRole
+from apps.common.models import DocumentStatus, EvaluationType, InternshipStatus, UserRole
 from apps.companies.models import Company, CompanyMembership
-from apps.documents.services import submit_document
+from apps.documents.models import DocumentType
+from apps.documents.services import reject_document, submit_document
 from apps.evaluations.services import submit_evaluation
 from apps.institutions.models import Department, Institution
 from apps.internships.services import assign_academic_supervisor, complete_internship
+from apps.notifications.models import Notification
 from apps.notifications.services import mark_as_read, notify
 from apps.offers.models import Offer
 from apps.tracking.services import submit_weekly_log
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from django.utils import timezone
 
 pytestmark = pytest.mark.django_db
+
+
+def _file(name: str = "document.pdf") -> ContentFile:
+    uploaded = ContentFile(b"%PDF-1.4\n%test\n", name=name)
+    return uploaded
 
 
 def test_student_to_completed_internship_workflow() -> None:
@@ -38,10 +46,32 @@ def test_student_to_completed_internship_workflow() -> None:
         company=company, title="Backend Internship", description="Build MVP workflows"
     )
 
+    cv = submit_document(
+        uploaded_by=student,
+        title="CV",
+        file=_file("cv.pdf"),
+        document_type=DocumentType.CV,
+    )
     application = submit_application(offer=offer, student=student, cover_letter="Ready")
     internship = accept_application(application=application, reviewed_by=company_user)
     internship = assign_academic_supervisor(internship=internship, supervisor=supervisor)
-    document = submit_document(internship=internship, uploaded_by=student, title="Convention")
+    convention = submit_document(
+        internship=internship,
+        uploaded_by=student,
+        title="Convention",
+        file=_file("convention.pdf"),
+        document_type=DocumentType.CONVENTION,
+    )
+    report = submit_document(
+        internship=internship,
+        uploaded_by=student,
+        title="Rapport",
+        file=_file("rapport.pdf"),
+        document_type=DocumentType.REPORT,
+    )
+    rejected_report = reject_document(
+        document=report, reviewed_by=supervisor, comment="Missing signature"
+    )
     log = submit_weekly_log(
         internship=internship,
         student=student,
@@ -61,7 +91,14 @@ def test_student_to_completed_internship_workflow() -> None:
 
     assert internship.status == InternshipStatus.COMPLETED
     assert internship.academic_supervisor == supervisor
-    assert document.uploaded_by == student
+    assert cv.internship is None
+    assert convention.document_type == DocumentType.CONVENTION
+    assert rejected_report.status == DocumentStatus.REJECTED
     assert log.submitted_at is not None
     assert evaluation.score == 91
     assert notification.is_read is True
+    assert Notification.objects.filter(recipient=company_user, title="New application").exists()
+    assert Notification.objects.filter(recipient=student, title="Application accepted").exists()
+    assert Notification.objects.filter(recipient=student, title="Internship created").exists()
+    assert Notification.objects.filter(recipient=student, title="Document rejected").exists()
+    assert Notification.objects.filter(recipient=student, title="Evaluation submitted").exists()

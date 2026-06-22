@@ -5,7 +5,7 @@ from apps.internships.models import Internship
 
 
 def create_internship_from_application(*, application, academic_supervisor=None) -> Internship:
-    internship, _ = Internship.objects.get_or_create(
+    internship, created = Internship.objects.get_or_create(
         application=application,
         defaults={
             "offer": application.offer,
@@ -16,6 +16,20 @@ def create_internship_from_application(*, application, academic_supervisor=None)
             "end_date": application.offer.end_date,
         },
     )
+    if created:
+        from apps.notifications.services import notify
+
+        notify(
+            recipient=internship.student,
+            title="Internship created",
+            message=f"Your internship with {internship.company.name} has been created.",
+        )
+        if internship.academic_supervisor_id:
+            notify(
+                recipient=internship.academic_supervisor,
+                title="Internship supervision assigned",
+                message=f"You have been assigned to supervise {internship.student.email}.",
+            )
     return internship
 
 
