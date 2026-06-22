@@ -1,0 +1,5 @@
+import { defineStore } from 'pinia'
+import type { ListParams } from '@/api/resource'
+export function createResourceStore<TList>(id: string, listFn: (params?: ListParams) => Promise<TList>) {
+  return defineStore(id, { state: () => ({ data: null as TList | null, loading: false, error: null as string | null, params: {} as ListParams }), actions: { async fetch(params?: ListParams) { this.loading = true; this.error = null; this.params = { ...this.params, ...params }; try { this.data = await listFn(this.params) } catch (e) { this.error = e instanceof Error ? e.message : 'Erreur de chargement' } finally { this.loading = false } } } })
+}

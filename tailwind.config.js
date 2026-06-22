@@ -1,0 +1,1 @@
+export default { content:['./index.html','./src/**/*.{vue,ts}'], theme:{extend:{fontFamily:{sans:['Inter','ui-sans-serif','system-ui']}, borderRadius:{xl:'0.75rem','2xl':'1rem'}, colors:{border:'#e5e7eb', muted:'#f8fafc', ink:'#0f172a'}}}, plugins:[] }
