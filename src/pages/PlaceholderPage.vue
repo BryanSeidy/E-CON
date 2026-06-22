@@ -1,237 +1,79 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
-import { RouterLink, useRoute } from "vue-router";
-import {
-  AlertCircle,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Edit3,
-  Loader2,
-  Plus,
-  Search,
-  Trash2,
-  X,
-} from "lucide-vue-next";
-import {
-  applicationsApi,
-  companiesApi,
-  internshipsApi,
-  offersApi,
-} from "@/api/endpoints";
-import { useAuthStore } from "@/stores/auth";
-import type { Application, Company, Internship, Offer } from "@/types/api";
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
+import { AlertCircle, Check, ChevronLeft, ChevronRight, Edit3, Loader2, Plus, Search, Trash2, X } from 'lucide-vue-next'
+import { applicationsApi, companiesApi, documentsApi, evaluationsApi, internshipsApi, notificationsApi, offersApi, weeklyLogsApi } from '@/api/endpoints'
+import { useAuthStore } from '@/stores/auth'
+import type { Application, Company, Document, Evaluation, Internship, Notification, Offer, WeeklyLog } from '@/types/api'
 
-const route = useRoute();
-const auth = useAuthStore();
-const loading = ref(false);
-const saving = ref(false);
-const error = ref("");
-const search = ref("");
-const page = ref(1);
-const total = ref(0);
-const offers = ref<Offer[]>([]);
-const applications = ref<Application[]>([]);
-const internships = ref<Internship[]>([]);
-const companies = ref<Company[]>([]);
-const selectedOffer = ref<Offer | null>(null);
-const editingOfferId = ref<string | null>(null);
-const coverLetter = ref("");
-const offerForm = reactive({
-  company: "",
-  title: "",
-  description: "",
-  location: "",
-  required_skills: "",
-  start_date: "",
-  end_date: "",
-  is_active: true,
-});
-const activeView = computed(() => String(route.name ?? ""));
-const isList = computed(() =>
-  ["offers", "company-offers"].includes(activeView.value),
-);
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / 20)));
+const route = useRoute()
+const auth = useAuthStore()
+const loading = ref(false)
+const saving = ref(false)
+const error = ref('')
+const search = ref('')
+const page = ref(1)
+const total = ref(0)
+const offers = ref<Offer[]>([])
+const applications = ref<Application[]>([])
+const internships = ref<Internship[]>([])
+const documents = ref<Document[]>([])
+const weeklyLogs = ref<WeeklyLog[]>([])
+const evaluations = ref<Evaluation[]>([])
+const notifications = ref<Notification[]>([])
+const companies = ref<Company[]>([])
+const selectedOffer = ref<Offer | null>(null)
+const editingOfferId = ref<string | null>(null)
+const coverLetter = ref('')
+const offerForm = reactive({ company: '', title: '', description: '', location: '', required_skills: '', start_date: '', end_date: '', is_active: true })
+const weeklyLogForm = reactive({ internship: '', week_start: '', activities: '', blockers: '', next_steps: '' })
+const evaluationForm = reactive({ internship: '', evaluation_type: 'ACADEMIC' as 'ACADEMIC' | 'PROFESSIONAL', score: 80, comment: '' })
+const activeView = computed(() => String(route.name ?? ''))
+const isList = computed(() => ['offers', 'company-offers'].includes(activeView.value))
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / 20)))
 
-function resetState() {
-  error.value = "";
-  selectedOffer.value = null;
-  applications.value = [];
-  internships.value = [];
-  offers.value = [];
-  total.value = 0;
-}
-function setError(message = "Une erreur est survenue pendant le chargement.") {
-  error.value = message;
-}
-function resetOfferForm(company = "") {
-  Object.assign(offerForm, {
-    company,
-    title: "",
-    description: "",
-    location: "",
-    required_skills: "",
-    start_date: "",
-    end_date: "",
-    is_active: true,
-  });
-  editingOfferId.value = null;
-}
-function editOffer(offer: Offer) {
-  Object.assign(offerForm, {
-    company: offer.company,
-    title: offer.title,
-    description: offer.description,
-    location: offer.location ?? "",
-    required_skills: offer.required_skills ?? "",
-    start_date: offer.start_date ?? "",
-    end_date: offer.end_date ?? "",
-    is_active: offer.is_active ?? true,
-  });
-  editingOfferId.value = offer.id;
-}
+function resetState() { error.value = ''; selectedOffer.value = null; applications.value = []; internships.value = []; documents.value = []; weeklyLogs.value = []; evaluations.value = []; notifications.value = []; offers.value = []; total.value = 0 }
+function setError(message = 'Une erreur est survenue pendant le chargement.') { error.value = message }
+function resetOfferForm(company = '') { Object.assign(offerForm, { company, title: '', description: '', location: '', required_skills: '', start_date: '', end_date: '', is_active: true }); editingOfferId.value = null }
+function editOffer(offer: Offer) { Object.assign(offerForm, { company: offer.company, title: offer.title, description: offer.description, location: offer.location ?? '', required_skills: offer.required_skills ?? '', start_date: offer.start_date ?? '', end_date: offer.end_date ?? '', is_active: offer.is_active ?? true }); editingOfferId.value = offer.id }
 
-async function loadCompanies() {
-  companies.value = (await companiesApi.list()).results;
-  if (!offerForm.company && companies.value[0])
-    offerForm.company = companies.value[0].id;
-}
-async function loadOffers() {
-  const response = await offersApi.list({
-    page: page.value,
-    search: search.value || undefined,
-  });
-  offers.value = response.results;
-  total.value = response.count;
-}
-async function loadApplications() {
-  const response = await applicationsApi.list({
-    page: page.value,
-    search: search.value || undefined,
-  });
-  applications.value = response.results;
-  total.value = response.count;
-}
-async function loadInternships() {
-  const response = await internshipsApi.list({
-    page: page.value,
-    search: search.value || undefined,
-  });
-  internships.value = response.results;
-  total.value = response.count;
-}
-async function loadOfferDetail() {
-  selectedOffer.value = await offersApi.retrieve(String(route.params.id));
-}
+async function loadCompanies() { companies.value = (await companiesApi.list()).results; if (!offerForm.company && companies.value[0]) offerForm.company = companies.value[0].id }
+async function loadOffers() { const response = await offersApi.list({ page: page.value, search: search.value || undefined }); offers.value = response.results; total.value = response.count }
+async function loadApplications() { const response = await applicationsApi.list({ page: page.value, search: search.value || undefined }); applications.value = response.results; total.value = response.count }
+async function loadInternships() { const response = await internshipsApi.list({ page: page.value, search: search.value || undefined }); internships.value = response.results; total.value = response.count; if (!weeklyLogForm.internship && internships.value[0]) weeklyLogForm.internship = internships.value[0].id; if (!evaluationForm.internship && internships.value[0]) evaluationForm.internship = internships.value[0].id }
+async function loadDocuments() { const response = await documentsApi.list({ page: page.value, search: search.value || undefined }); documents.value = response.results; total.value = response.count }
+async function loadWeeklyLogs() { const response = await weeklyLogsApi.list({ page: page.value, search: search.value || undefined }); weeklyLogs.value = response.results; total.value = response.count; if (!internships.value.length) { const internshipResponse = await internshipsApi.list(); internships.value = internshipResponse.results; if (!weeklyLogForm.internship && internships.value[0]) weeklyLogForm.internship = internships.value[0].id } }
+async function loadEvaluations() { const response = await evaluationsApi.list({ page: page.value }); evaluations.value = response.results; total.value = response.count; if (!internships.value.length) { const internshipResponse = await internshipsApi.list(); internships.value = internshipResponse.results; if (!evaluationForm.internship && internships.value[0]) evaluationForm.internship = internships.value[0].id } }
+async function loadNotifications() { const response = await notificationsApi.list({ page: page.value, search: search.value || undefined }); notifications.value = response.results; total.value = response.count }
+async function loadOfferDetail() { selectedOffer.value = await offersApi.retrieve(String(route.params.id)) }
 async function loadCurrentView() {
   loading.value = true;
   resetState();
   try {
-    if (
-      activeView.value === "offers" ||
-      activeView.value === "company-offers"
-    ) {
-      if (activeView.value === "company-offers") await loadCompanies();
-      await loadOffers();
-    }
-    if (activeView.value === "offer-detail") await loadOfferDetail();
-    if (["applications", "company-applications"].includes(activeView.value))
-      await loadApplications();
-    if (["internships", "university-internships"].includes(activeView.value))
-      await loadInternships();
-  } catch {
-    setError();
-  } finally {
-    loading.value = false;
-  }
+    if (activeView.value === 'offers' || activeView.value === 'company-offers') { if (activeView.value === 'company-offers') await loadCompanies(); await loadOffers() }
+    if (activeView.value === 'offer-detail') await loadOfferDetail()
+    if (['applications', 'company-applications'].includes(activeView.value)) await loadApplications()
+    if (['internships', 'university-internships'].includes(activeView.value)) await loadInternships()
+    if (activeView.value === 'documents') await loadDocuments()
+    if (activeView.value === 'weekly-logs') await loadWeeklyLogs()
+    if (activeView.value === 'evaluations') await loadEvaluations()
+    if (activeView.value === 'notifications') await loadNotifications()
+  } catch { setError() } finally { loading.value = false }
 }
-async function submitApplication() {
-  if (!selectedOffer.value) return;
-  saving.value = true;
-  try {
-    await applicationsApi.create({
-      offer: selectedOffer.value.id,
-      cover_letter: coverLetter.value,
-    });
-    coverLetter.value = "";
-  } catch {
-    setError("La candidature n’a pas pu être envoyée.");
-  } finally {
-    saving.value = false;
-  }
-}
-async function saveOffer() {
-  saving.value = true;
-  try {
-    const payload = {
-      ...offerForm,
-      start_date: offerForm.start_date || null,
-      end_date: offerForm.end_date || null,
-    };
-    editingOfferId.value
-      ? await offersApi.update(editingOfferId.value, payload)
-      : await offersApi.create(payload);
-    resetOfferForm(offerForm.company);
-    await loadOffers();
-  } catch {
-    setError("L’offre n’a pas pu être enregistrée.");
-  } finally {
-    saving.value = false;
-  }
-}
-async function deleteOffer(id: string) {
-  saving.value = true;
-  try {
-    await offersApi.remove(id);
-    await loadOffers();
-  } catch {
-    setError("L’offre n’a pas pu être supprimée.");
-  } finally {
-    saving.value = false;
-  }
-}
-async function reviewApplication(
-  application: Application,
-  action: "accept" | "reject",
-) {
-  saving.value = true;
-  try {
-    await applicationsApi.action(application.id, action);
-    await loadApplications();
-  } catch {
-    setError("La candidature n’a pas pu être mise à jour.");
-  } finally {
-    saving.value = false;
-  }
-}
-function nextPage() {
-  if (page.value < totalPages.value) page.value += 1;
-}
-function previousPage() {
-  if (page.value > 1) page.value -= 1;
-}
+async function submitApplication() { if (!selectedOffer.value) return; saving.value = true; try { await applicationsApi.create({ offer: selectedOffer.value.id, cover_letter: coverLetter.value }); coverLetter.value = '' } catch { setError('La candidature n’a pas pu être envoyée.') } finally { saving.value = false } }
+async function saveOffer() { saving.value = true; try { const payload = { ...offerForm, start_date: offerForm.start_date || null, end_date: offerForm.end_date || null }; editingOfferId.value ? await offersApi.update(editingOfferId.value, payload) : await offersApi.create(payload); resetOfferForm(offerForm.company); await loadOffers() } catch { setError('L’offre n’a pas pu être enregistrée.') } finally { saving.value = false } }
+async function deleteOffer(id: string) { saving.value = true; try { await offersApi.remove(id); await loadOffers() } catch { setError('L’offre n’a pas pu être supprimée.') } finally { saving.value = false } }
+async function submitWeeklyLog() { saving.value = true; try { await weeklyLogsApi.create({ ...weeklyLogForm }); Object.assign(weeklyLogForm, { internship: weeklyLogForm.internship, week_start: '', activities: '', blockers: '', next_steps: '' }); await loadWeeklyLogs() } catch { setError('Le journal hebdomadaire n’a pas pu être enregistré.') } finally { saving.value = false } }
+async function submitEvaluation() { saving.value = true; try { await evaluationsApi.create({ ...evaluationForm, score: Number(evaluationForm.score) }); Object.assign(evaluationForm, { internship: evaluationForm.internship, evaluation_type: evaluationForm.evaluation_type, score: 80, comment: '' }); await loadEvaluations() } catch { setError('L’évaluation n’a pas pu être enregistrée.') } finally { saving.value = false } }
+async function markNotificationRead(notification: Notification) { saving.value = true; try { await notificationsApi.action(notification.id, 'read'); await loadNotifications() } catch { setError('La notification n’a pas pu être mise à jour.') } finally { saving.value = false } }
+async function reviewDocument(document: Document, action: 'approve' | 'reject') { saving.value = true; try { await documentsApi.action(document.id, action); await loadDocuments() } catch { setError('Le document n’a pas pu être mis à jour.') } finally { saving.value = false } }
+async function reviewApplication(application: Application, action: 'accept' | 'reject') { saving.value = true; try { await applicationsApi.action(application.id, action); await loadApplications() } catch { setError('La candidature n’a pas pu être mise à jour.') } finally { saving.value = false } }
+function nextPage() { if (page.value < totalPages.value) page.value += 1 }
+function previousPage() { if (page.value > 1) page.value -= 1 }
 
-watch(
-  () => route.fullPath,
-  () => {
-    page.value = 1;
-    resetOfferForm();
-    void loadCurrentView();
-  },
-);
-watch([page], () => {
-  if (
-    isList.value ||
-    [
-      "applications",
-      "company-applications",
-      "internships",
-      "university-internships",
-    ].includes(activeView.value)
-  )
-    void loadCurrentView();
-});
-onMounted(loadCurrentView);
+watch(() => route.fullPath, () => { page.value = 1; resetOfferForm(); void loadCurrentView() })
+watch([page], () => { if (isList.value || ['applications','company-applications','internships','university-internships','documents','weekly-logs','evaluations','notifications'].includes(activeView.value)) void loadCurrentView() })
+onMounted(loadCurrentView)
 </script>
 
 <template>
@@ -272,272 +114,84 @@ onMounted(loadCurrentView);
     </div>
 
     <template v-else>
-      <div
-        v-if="
-          [
-            'offers',
-            'company-offers',
-            'applications',
-            'company-applications',
-            'internships',
-            'university-internships',
-          ].includes(activeView)
-        "
-        class="flex flex-col gap-3 rounded-2xl border border-border bg-white p-4 md:flex-row md:items-center md:justify-between"
-      >
-        <label class="relative block w-full md:max-w-md"
-          ><Search class="absolute left-3 top-3 h-4 w-4 text-slate-400" /><input
-            v-model="search"
-            class="w-full rounded-xl border border-border py-2.5 pl-10 pr-3 text-sm"
-            placeholder="Rechercher"
-            @keyup.enter="
-              page = 1;
-              loadCurrentView();
-            "
-        /></label>
-        <button
-          class="rounded-xl border border-border px-4 py-2 text-sm font-medium"
-          @click="
-            page = 1;
-            loadCurrentView();
-          "
-        >
-          Appliquer
-        </button>
+      <div v-if="['offers','company-offers','applications','company-applications','internships','university-internships','documents','weekly-logs','evaluations','notifications'].includes(activeView)" class="flex flex-col gap-3 rounded-2xl border border-border bg-white p-4 md:flex-row md:items-center md:justify-between">
+        <label class="relative block w-full md:max-w-md"><Search class="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input v-model="search" class="w-full rounded-xl border border-border py-2.5 pl-10 pr-3 text-sm" placeholder="Rechercher" @keyup.enter="page = 1; loadCurrentView()"/></label>
+        <button class="rounded-xl border border-border px-4 py-2 text-sm font-medium" @click="page = 1; loadCurrentView()">Appliquer</button>
       </div>
 
-      <div
-        v-if="activeView === 'company-offers'"
-        class="rounded-2xl border border-border bg-white p-6 shadow-sm"
-      >
-        <h3 class="text-lg font-semibold">
-          {{ editingOfferId ? "Modifier une offre" : "Créer une offre" }}
-        </h3>
-        <form
-          class="mt-4 grid gap-4 md:grid-cols-2"
-          @submit.prevent="saveOffer"
-        >
-          <select
-            v-model="offerForm.company"
-            required
-            class="rounded-xl border border-border px-3 py-2.5 text-sm"
-          >
-            <option value="" disabled>Entreprise</option>
-            <option
-              v-for="company in companies"
-              :key="company.id"
-              :value="company.id"
-            >
-              {{ company.name }}
-            </option>
-          </select>
-          <input
-            v-model="offerForm.title"
-            required
-            class="rounded-xl border border-border px-3 py-2.5 text-sm"
-            placeholder="Titre"
-          />
-          <input
-            v-model="offerForm.location"
-            class="rounded-xl border border-border px-3 py-2.5 text-sm"
-            placeholder="Localisation"
-          />
-          <input
-            v-model="offerForm.required_skills"
-            class="rounded-xl border border-border px-3 py-2.5 text-sm"
-            placeholder="Compétences requises"
-          />
-          <input
-            v-model="offerForm.start_date"
-            type="date"
-            class="rounded-xl border border-border px-3 py-2.5 text-sm"
-          />
-          <input
-            v-model="offerForm.end_date"
-            type="date"
-            class="rounded-xl border border-border px-3 py-2.5 text-sm"
-          />
-          <textarea
-            v-model="offerForm.description"
-            required
-            class="min-h-28 rounded-xl border border-border px-3 py-2.5 text-sm md:col-span-2"
-            placeholder="Description"
-          />
-          <div class="flex items-center gap-3 md:col-span-2">
-            <button
-              class="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-              :disabled="saving"
-            >
-              <Plus v-if="!editingOfferId" class="mr-2 inline h-4 w-4" /><Edit3
-                v-else
-                class="mr-2 inline h-4 w-4"
-              />Enregistrer</button
-            ><button
-              v-if="editingOfferId"
-              type="button"
-              class="rounded-xl border border-border px-4 py-2.5 text-sm"
-              @click="resetOfferForm(offerForm.company)"
-            >
-              Annuler
-            </button>
-          </div>
+      <div v-if="activeView === 'weekly-logs'" class="rounded-2xl border border-border bg-white p-6 shadow-sm">
+        <h3 class="text-lg font-semibold">Déposer un journal hebdomadaire</h3>
+        <form class="mt-4 grid gap-4 md:grid-cols-2" @submit.prevent="submitWeeklyLog">
+          <select v-model="weeklyLogForm.internship" required class="rounded-xl border border-border px-3 py-2.5 text-sm"><option value="" disabled>Stage</option><option v-for="internship in internships" :key="internship.id" :value="internship.id">Stage {{ internship.id }}</option></select>
+          <input v-model="weeklyLogForm.week_start" required type="date" class="rounded-xl border border-border px-3 py-2.5 text-sm"/>
+          <textarea v-model="weeklyLogForm.activities" required class="min-h-28 rounded-xl border border-border px-3 py-2.5 text-sm md:col-span-2" placeholder="Activités réalisées"/>
+          <textarea v-model="weeklyLogForm.blockers" class="min-h-20 rounded-xl border border-border px-3 py-2.5 text-sm" placeholder="Blocages"/>
+          <textarea v-model="weeklyLogForm.next_steps" class="min-h-20 rounded-xl border border-border px-3 py-2.5 text-sm" placeholder="Prochaines étapes"/>
+          <button class="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 md:col-span-2" :disabled="saving">Enregistrer le journal</button>
         </form>
       </div>
 
-      <div v-if="loading" class="grid gap-4 md:grid-cols-2">
-        <div
-          v-for="i in 4"
-          :key="i"
-          class="h-40 animate-pulse rounded-2xl bg-slate-200"
-        />
-      </div>
-      <div
-        v-else-if="error"
-        class="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700"
-      >
-        {{ error }}
-      </div>
-
-      <div
-        v-else-if="activeView === 'offer-detail' && selectedOffer"
-        class="grid gap-6 lg:grid-cols-[1fr_24rem]"
-      >
-        <article
-          class="rounded-2xl border border-border bg-white p-8 shadow-sm"
-        >
-          <p class="text-sm font-medium text-slate-500">
-            {{ selectedOffer.location || "Localisation non renseignée" }}
-          </p>
-          <h3 class="mt-2 text-3xl font-bold">{{ selectedOffer.title }}</h3>
-          <p class="mt-6 whitespace-pre-line leading-7 text-slate-700">
-            {{ selectedOffer.description }}
-          </p>
-          <div class="mt-6 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-            <span class="font-medium">Compétences :</span>
-            {{ selectedOffer.required_skills || "Non renseignées" }}
-          </div>
-        </article>
-        <form
-          class="rounded-2xl border border-border bg-white p-6 shadow-sm"
-          @submit.prevent="submitApplication"
-        >
-          <h3 class="font-semibold">Candidater</h3>
-          <textarea
-            v-model="coverLetter"
-            class="mt-4 min-h-40 w-full rounded-xl border border-border p-3 text-sm"
-            placeholder="Lettre de motivation"
-          /><button
-            class="mt-4 w-full rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-            :disabled="saving"
-          >
-            <Loader2
-              v-if="saving"
-              class="mr-2 inline h-4 w-4 animate-spin"
-            />Envoyer la candidature
-          </button>
+      <div v-if="activeView === 'evaluations'" class="rounded-2xl border border-border bg-white p-6 shadow-sm">
+        <h3 class="text-lg font-semibold">Créer une évaluation</h3>
+        <form class="mt-4 grid gap-4 md:grid-cols-2" @submit.prevent="submitEvaluation">
+          <select v-model="evaluationForm.internship" required class="rounded-xl border border-border px-3 py-2.5 text-sm"><option value="" disabled>Stage</option><option v-for="internship in internships" :key="internship.id" :value="internship.id">Stage {{ internship.id }}</option></select>
+          <select v-model="evaluationForm.evaluation_type" class="rounded-xl border border-border px-3 py-2.5 text-sm"><option value="ACADEMIC">Académique</option><option value="PROFESSIONAL">Professionnelle</option></select>
+          <input v-model.number="evaluationForm.score" required type="number" min="0" max="100" class="rounded-xl border border-border px-3 py-2.5 text-sm"/>
+          <textarea v-model="evaluationForm.comment" class="min-h-20 rounded-xl border border-border px-3 py-2.5 text-sm" placeholder="Commentaire"/>
+          <button class="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 md:col-span-2" :disabled="saving">Enregistrer l’évaluation</button>
         </form>
       </div>
 
-      <div
-        v-else-if="['offers', 'company-offers'].includes(activeView)"
-        class="grid gap-4 md:grid-cols-2"
-      >
-        <article
-          v-for="offer in offers"
-          :key="offer.id"
-          class="rounded-2xl border border-border bg-white p-6 shadow-sm"
-        >
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <p class="text-sm text-slate-500">
-                {{ offer.location || "Localisation non renseignée" }}
-              </p>
-              <h3 class="mt-1 text-xl font-semibold">{{ offer.title }}</h3>
-            </div>
-            <span
-              class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium"
-              >{{ offer.is_active ? "Active" : "Inactive" }}</span
-            >
-          </div>
-          <p class="mt-4 line-clamp-3 text-sm leading-6 text-slate-600">
-            {{ offer.description }}
-          </p>
-          <div class="mt-5 flex flex-wrap gap-2">
-            <RouterLink
-              class="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
-              :to="`/offers/${offer.id}`"
-              >Voir</RouterLink
-            ><template v-if="activeView === 'company-offers'"
-              ><button
-                class="rounded-xl border border-border px-4 py-2 text-sm"
-                @click="editOffer(offer)"
-              >
-                <Edit3 class="mr-2 inline h-4 w-4" />Modifier</button
-              ><button
-                class="rounded-xl border border-red-200 px-4 py-2 text-sm text-red-700"
-                @click="deleteOffer(offer.id)"
-              >
-                <Trash2 class="mr-2 inline h-4 w-4" />Supprimer
-              </button></template
-            >
-          </div>
-        </article>
-        <div
-          v-if="!offers.length"
-          class="rounded-2xl border border-border bg-white p-10 text-center text-slate-500 md:col-span-2"
-        >
-          Aucune offre trouvée.
-        </div>
+      <div v-if="activeView === 'company-offers'" class="rounded-2xl border border-border bg-white p-6 shadow-sm">
+        <h3 class="text-lg font-semibold">{{ editingOfferId ? 'Modifier une offre' : 'Créer une offre' }}</h3>
+        <form class="mt-4 grid gap-4 md:grid-cols-2" @submit.prevent="saveOffer">
+          <select v-model="offerForm.company" required class="rounded-xl border border-border px-3 py-2.5 text-sm"><option value="" disabled>Entreprise</option><option v-for="company in companies" :key="company.id" :value="company.id">{{ company.name }}</option></select>
+          <input v-model="offerForm.title" required class="rounded-xl border border-border px-3 py-2.5 text-sm" placeholder="Titre"/>
+          <input v-model="offerForm.location" class="rounded-xl border border-border px-3 py-2.5 text-sm" placeholder="Localisation"/>
+          <input v-model="offerForm.required_skills" class="rounded-xl border border-border px-3 py-2.5 text-sm" placeholder="Compétences requises"/>
+          <input v-model="offerForm.start_date" type="date" class="rounded-xl border border-border px-3 py-2.5 text-sm"/>
+          <input v-model="offerForm.end_date" type="date" class="rounded-xl border border-border px-3 py-2.5 text-sm"/>
+          <textarea v-model="offerForm.description" required class="min-h-28 rounded-xl border border-border px-3 py-2.5 text-sm md:col-span-2" placeholder="Description"/>
+          <div class="flex items-center gap-3 md:col-span-2"><button class="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" :disabled="saving"><Plus v-if="!editingOfferId" class="mr-2 inline h-4 w-4"/><Edit3 v-else class="mr-2 inline h-4 w-4"/>Enregistrer</button><button v-if="editingOfferId" type="button" class="rounded-xl border border-border px-4 py-2.5 text-sm" @click="resetOfferForm(offerForm.company)">Annuler</button></div>
+        </form>
       </div>
 
-      <div
-        v-else-if="
-          ['applications', 'company-applications'].includes(activeView)
-        "
-        class="space-y-3"
-      >
-        <article
-          v-for="application in applications"
-          :key="application.id"
-          class="rounded-2xl border border-border bg-white p-5 shadow-sm"
-        >
-          <div
-            class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
-          >
-            <div>
-              <p class="text-sm text-slate-500">Candidature</p>
-              <h3 class="font-semibold">{{ application.id }}</h3>
-              <p class="mt-1 text-sm text-slate-600">
-                Statut : {{ application.status }}
-              </p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <RouterLink
-                class="rounded-xl border border-border px-4 py-2 text-sm"
-                :to="`/offers/${application.offer}`"
-                >Offre</RouterLink
-              ><template v-if="activeView === 'company-applications'"
-                ><button
-                  class="rounded-xl border border-emerald-200 px-4 py-2 text-sm text-emerald-700"
-                  @click="reviewApplication(application, 'accept')"
-                >
-                  <Check class="mr-2 inline h-4 w-4" />Accepter</button
-                ><button
-                  class="rounded-xl border border-red-200 px-4 py-2 text-sm text-red-700"
-                  @click="reviewApplication(application, 'reject')"
-                >
-                  <X class="mr-2 inline h-4 w-4" />Rejeter
-                </button></template
-              >
-            </div>
-          </div>
-        </article>
-        <div
-          v-if="!applications.length"
-          class="rounded-2xl border border-border bg-white p-10 text-center text-slate-500"
-        >
-          Aucune candidature trouvée.
-        </div>
+      <div v-if="loading" class="grid gap-4 md:grid-cols-2"><div v-for="i in 4" :key="i" class="h-40 animate-pulse rounded-2xl bg-slate-200"/></div>
+      <div v-else-if="error" class="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">{{ error }}</div>
+
+      <div v-else-if="activeView === 'offer-detail' && selectedOffer" class="grid gap-6 lg:grid-cols-[1fr_24rem]">
+        <article class="rounded-2xl border border-border bg-white p-8 shadow-sm"><p class="text-sm font-medium text-slate-500">{{ selectedOffer.location || 'Localisation non renseignée' }}</p><h3 class="mt-2 text-3xl font-bold">{{ selectedOffer.title }}</h3><p class="mt-6 whitespace-pre-line leading-7 text-slate-700">{{ selectedOffer.description }}</p><div class="mt-6 rounded-xl bg-slate-50 p-4 text-sm text-slate-600"><span class="font-medium">Compétences :</span> {{ selectedOffer.required_skills || 'Non renseignées' }}</div></article>
+        <form class="rounded-2xl border border-border bg-white p-6 shadow-sm" @submit.prevent="submitApplication"><h3 class="font-semibold">Candidater</h3><textarea v-model="coverLetter" class="mt-4 min-h-40 w-full rounded-xl border border-border p-3 text-sm" placeholder="Lettre de motivation"/><button class="mt-4 w-full rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" :disabled="saving"><Loader2 v-if="saving" class="mr-2 inline h-4 w-4 animate-spin"/>Envoyer la candidature</button></form>
+      </div>
+
+      <div v-else-if="['offers','company-offers'].includes(activeView)" class="grid gap-4 md:grid-cols-2">
+        <article v-for="offer in offers" :key="offer.id" class="rounded-2xl border border-border bg-white p-6 shadow-sm"><div class="flex items-start justify-between gap-4"><div><p class="text-sm text-slate-500">{{ offer.location || 'Localisation non renseignée' }}</p><h3 class="mt-1 text-xl font-semibold">{{ offer.title }}</h3></div><span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium">{{ offer.is_active ? 'Active' : 'Inactive' }}</span></div><p class="mt-4 line-clamp-3 text-sm leading-6 text-slate-600">{{ offer.description }}</p><div class="mt-5 flex flex-wrap gap-2"><RouterLink class="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white" :to="`/offers/${offer.id}`">Voir</RouterLink><template v-if="activeView === 'company-offers'"><button class="rounded-xl border border-border px-4 py-2 text-sm" @click="editOffer(offer)"><Edit3 class="mr-2 inline h-4 w-4"/>Modifier</button><button class="rounded-xl border border-red-200 px-4 py-2 text-sm text-red-700" @click="deleteOffer(offer.id)"><Trash2 class="mr-2 inline h-4 w-4"/>Supprimer</button></template></div></article>
+        <div v-if="!offers.length" class="rounded-2xl border border-border bg-white p-10 text-center text-slate-500 md:col-span-2">Aucune offre trouvée.</div>
+      </div>
+
+      <div v-else-if="['applications','company-applications'].includes(activeView)" class="space-y-3">
+        <article v-for="application in applications" :key="application.id" class="rounded-2xl border border-border bg-white p-5 shadow-sm"><div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><p class="text-sm text-slate-500">Candidature</p><h3 class="font-semibold">{{ application.id }}</h3><p class="mt-1 text-sm text-slate-600">Statut : {{ application.status }}</p></div><div class="flex flex-wrap gap-2"><RouterLink class="rounded-xl border border-border px-4 py-2 text-sm" :to="`/offers/${application.offer}`">Offre</RouterLink><template v-if="activeView === 'company-applications'"><button class="rounded-xl border border-emerald-200 px-4 py-2 text-sm text-emerald-700" @click="reviewApplication(application, 'accept')"><Check class="mr-2 inline h-4 w-4"/>Accepter</button><button class="rounded-xl border border-red-200 px-4 py-2 text-sm text-red-700" @click="reviewApplication(application, 'reject')"><X class="mr-2 inline h-4 w-4"/>Rejeter</button></template></div></div></article>
+        <div v-if="!applications.length" class="rounded-2xl border border-border bg-white p-10 text-center text-slate-500">Aucune candidature trouvée.</div>
+      </div>
+
+      <div v-else-if="activeView === 'documents'" class="space-y-3">
+        <article v-for="document in documents" :key="document.id" class="rounded-2xl border border-border bg-white p-5 shadow-sm"><div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><p class="text-sm text-slate-500">{{ document.document_type }} · {{ document.status }}</p><h3 class="font-semibold">{{ document.title }}</h3><p class="mt-1 text-sm text-slate-600">{{ document.comment || 'Aucun commentaire' }}</p></div><div class="flex flex-wrap gap-2"><a class="rounded-xl border border-border px-4 py-2 text-sm" :href="document.file" target="_blank" rel="noreferrer">Télécharger</a><button class="rounded-xl border border-emerald-200 px-4 py-2 text-sm text-emerald-700" @click="reviewDocument(document, 'approve')">Approuver</button><button class="rounded-xl border border-red-200 px-4 py-2 text-sm text-red-700" @click="reviewDocument(document, 'reject')">Rejeter</button></div></div></article>
+        <div v-if="!documents.length" class="rounded-2xl border border-border bg-white p-10 text-center text-slate-500">Aucun document trouvé.</div>
+      </div>
+
+      <div v-else-if="activeView === 'weekly-logs'" class="space-y-3">
+        <article v-for="log in weeklyLogs" :key="log.id" class="rounded-2xl border border-border bg-white p-5 shadow-sm"><h3 class="font-semibold">Semaine du {{ log.week_start }}</h3><p class="mt-2 whitespace-pre-line text-sm text-slate-600">{{ log.activities }}</p><p v-if="log.blockers" class="mt-2 text-sm text-red-700">Blocages : {{ log.blockers }}</p><p v-if="log.next_steps" class="mt-2 text-sm text-slate-500">Suite : {{ log.next_steps }}</p></article>
+        <div v-if="!weeklyLogs.length" class="rounded-2xl border border-border bg-white p-10 text-center text-slate-500">Aucun journal trouvé.</div>
+      </div>
+
+      <div v-else-if="activeView === 'evaluations'" class="space-y-3">
+        <article v-for="evaluation in evaluations" :key="evaluation.id" class="rounded-2xl border border-border bg-white p-5 shadow-sm"><h3 class="font-semibold">{{ evaluation.evaluation_type }} · {{ evaluation.score }}/100</h3><p class="mt-2 whitespace-pre-line text-sm text-slate-600">{{ evaluation.comment || 'Aucun commentaire' }}</p></article>
+        <div v-if="!evaluations.length" class="rounded-2xl border border-border bg-white p-10 text-center text-slate-500">Aucune évaluation trouvée.</div>
+      </div>
+
+      <div v-else-if="activeView === 'notifications'" class="space-y-3">
+        <article v-for="notification in notifications" :key="notification.id" class="rounded-2xl border border-border bg-white p-5 shadow-sm"><div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><p class="text-sm text-slate-500">{{ notification.is_read ? 'Lue' : 'Non lue' }}</p><h3 class="font-semibold">{{ notification.title }}</h3><p class="mt-1 text-sm text-slate-600">{{ notification.message }}</p></div><button v-if="!notification.is_read" class="rounded-xl border border-border px-4 py-2 text-sm" @click="markNotificationRead(notification)">Marquer comme lue</button></div></article>
+        <div v-if="!notifications.length" class="rounded-2xl border border-border bg-white p-10 text-center text-slate-500">Aucune notification trouvée.</div>
       </div>
 
       <div
@@ -574,35 +228,7 @@ onMounted(loadCurrentView);
         </div>
       </div>
 
-      <div
-        v-if="
-          [
-            'offers',
-            'company-offers',
-            'applications',
-            'company-applications',
-            'internships',
-            'university-internships',
-          ].includes(activeView) && total > 20
-        "
-        class="flex items-center justify-between rounded-2xl border border-border bg-white p-4"
-      >
-        <button
-          class="rounded-xl border border-border px-3 py-2 text-sm disabled:opacity-50"
-          :disabled="page === 1"
-          @click="previousPage"
-        >
-          <ChevronLeft class="mr-1 inline h-4 w-4" />Précédent</button
-        ><span class="text-sm text-slate-500"
-          >Page {{ page }} sur {{ totalPages }}</span
-        ><button
-          class="rounded-xl border border-border px-3 py-2 text-sm disabled:opacity-50"
-          :disabled="page === totalPages"
-          @click="nextPage"
-        >
-          Suivant<ChevronRight class="ml-1 inline h-4 w-4" />
-        </button>
-      </div>
+      <div v-if="['offers','company-offers','applications','company-applications','internships','university-internships','documents','weekly-logs','evaluations','notifications'].includes(activeView) && total > 20" class="flex items-center justify-between rounded-2xl border border-border bg-white p-4"><button class="rounded-xl border border-border px-3 py-2 text-sm disabled:opacity-50" :disabled="page === 1" @click="previousPage"><ChevronLeft class="mr-1 inline h-4 w-4"/>Précédent</button><span class="text-sm text-slate-500">Page {{ page }} sur {{ totalPages }}</span><button class="rounded-xl border border-border px-3 py-2 text-sm disabled:opacity-50" :disabled="page === totalPages" @click="nextPage">Suivant<ChevronRight class="ml-1 inline h-4 w-4"/></button></div>
     </template>
   </section>
 </template>
