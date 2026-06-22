@@ -1,5 +1,7 @@
 """Internship workflow services."""
 
+from django.core.exceptions import ValidationError
+
 from apps.common.models import InternshipStatus
 from apps.internships.models import Internship
 
@@ -36,6 +38,8 @@ def create_internship_from_application(*, application, academic_supervisor=None)
 def assign_academic_supervisor(
     *, internship: Internship, supervisor=None, supervisor_id=None
 ) -> Internship:
+    if internship.status not in {InternshipStatus.ASSIGNED, InternshipStatus.ACTIVE}:
+        raise ValidationError("Supervisor can only be assigned before internship completion.")
     internship.academic_supervisor = supervisor
     if supervisor_id is not None:
         internship.academic_supervisor_id = supervisor_id
@@ -45,6 +49,8 @@ def assign_academic_supervisor(
 
 
 def complete_internship(*, internship: Internship) -> Internship:
+    if internship.status != InternshipStatus.ACTIVE:
+        raise ValidationError("Only active internships can be completed.")
     internship.status = InternshipStatus.COMPLETED
     internship.save(update_fields=["status", "updated_at"])
     return internship

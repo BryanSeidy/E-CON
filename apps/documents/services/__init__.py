@@ -1,5 +1,6 @@
 """Document services."""
 
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from apps.common.models import DocumentStatus
@@ -29,6 +30,8 @@ def submit_document(
 
 
 def approve_document(*, document: Document, reviewed_by, comment: str = "") -> Document:
+    if document.status not in {DocumentStatus.UPLOADED, DocumentStatus.IN_REVIEW}:
+        raise ValidationError("Only uploaded or in-review documents can be approved.")
     document.status = DocumentStatus.APPROVED
     document.reviewed_by = reviewed_by
     document.reviewed_at = timezone.now()
@@ -39,6 +42,8 @@ def approve_document(*, document: Document, reviewed_by, comment: str = "") -> D
 
 
 def reject_document(*, document: Document, reviewed_by, comment: str = "") -> Document:
+    if document.status not in {DocumentStatus.UPLOADED, DocumentStatus.IN_REVIEW}:
+        raise ValidationError("Only uploaded or in-review documents can be rejected.")
     document.status = DocumentStatus.REJECTED
     document.reviewed_by = reviewed_by
     document.reviewed_at = timezone.now()

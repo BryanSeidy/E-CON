@@ -12,3 +12,11 @@ class IsCompanyMemberOrAdmin(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return request.user.role in {UserRole.COMPANY_MEMBER, UserRole.SUPER_ADMIN}
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in SAFE_METHODS:
+            return True
+        if request.user.role == UserRole.SUPER_ADMIN:
+            return True
+        company = getattr(obj, "company", obj)
+        return company.memberships.filter(user=request.user).exists()

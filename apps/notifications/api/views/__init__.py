@@ -1,16 +1,20 @@
 """Notification viewsets."""
 
+from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from apps.notifications.api.serializers import NotificationSerializer
+from apps.notifications.models import Notification
 from apps.notifications.permissions import CanAccessOwnNotifications
 from apps.notifications.selectors import notification_list_for_user
 from apps.notifications.services import mark_as_read
 
 
+@extend_schema(tags=["notifications"])
 class NotificationViewSet(ModelViewSet):
+    queryset = Notification.objects.none()
     serializer_class = NotificationSerializer
     permission_classes = [CanAccessOwnNotifications]
 
