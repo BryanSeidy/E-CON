@@ -15,7 +15,7 @@ async function submit() {
   error.value = "";
   try {
     await auth.login({ email: email.value, password: password.value });
-    router.push(String(route.query.redirect ?? "/dashboard"));
+    router.push(String(route.query.redirect ?? "/app/dashboard"));
   } catch (e) {
     error.value = "Identifiants invalides ou session indisponible.";
   } finally {

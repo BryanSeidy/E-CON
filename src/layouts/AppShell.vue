@@ -14,14 +14,14 @@ const auth = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 const nav = [
-  ["/dashboard", "Dashboard", LayoutDashboard],
-  ["/profile", "Profil", UserRound],
-  ["/offers", "Offres", FileText],
-  ["/applications", "Candidatures", FileText],
-  ["/internships", "Stage", FileText],
-  ["/documents", "Documents", FileText],
-  ["/tracking/weekly-logs", "Journal", CalendarDays],
-  ["/notifications", "Notifications", Bell],
+  ["/app/dashboard", "Dashboard", LayoutDashboard],
+  ["/app/profile", "Profil", UserRound],
+  ["/app/offers", "Offres", FileText],
+  ["/app/applications", "Candidatures", FileText],
+  ["/app/internships", "Stage", FileText],
+  ["/app/documents", "Documents", FileText],
+  ["/app/tracking/weekly-logs", "Journal", CalendarDays],
+  ["/app/notifications", "Notifications", Bell],
 ];
 const title = computed(() => String(route.meta.label ?? "E-CON"));
 function logout() {
