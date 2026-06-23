@@ -5,7 +5,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
@@ -43,7 +43,7 @@ class DocumentViewSet(ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(uploaded_by=self.request.user)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], parser_classes=[JSONParser, MultiPartParser, FormParser])
     def approve(self, request, pk=None):
         try:
             document = approve_document(
@@ -55,7 +55,7 @@ class DocumentViewSet(ModelViewSet):
             raise ValidationError(exc.messages) from exc
         return Response(self.get_serializer(document).data)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], parser_classes=[JSONParser, MultiPartParser, FormParser])
     def reject(self, request, pk=None):
         try:
             document = reject_document(
