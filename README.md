@@ -34,7 +34,7 @@ Use the local settings module. For a quick local startup without requiring Postg
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
-python -m pip install -e .[dev]
+python -m pip install -r requirements.txt
 cp .env.example .env
 DJANGO_USE_SQLITE=true DJANGO_USE_LOCMEM_CACHE=true python manage.py migrate
 DJANGO_USE_SQLITE=true DJANGO_USE_LOCMEM_CACHE=true python manage.py check
